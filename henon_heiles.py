@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import tensorflow as tf
 
-from time import sleep
-
 
 def henon_heiles_potential(x, y):
     """The values of henon heiles poptential (\lambda = 1) for given x/y."""
@@ -83,21 +81,20 @@ def main():
     #---
 
     # setup training
-    cost = tf.reduce_sum(tf.squared_difference(z_, output))
+    cost = tf.losses.mean_squared_error(z_, output)
     optimizer = tf.train.AdamOptimizer()  
     training = optimizer.minimize(cost)
 
     #--- do the training and visualize training and validation costs ---
     sess.run(tf.global_variables_initializer())
 
-    epochs = 1000
-
+    # for plotting
     plt.ion()
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.set_autoscaley_on(True)
-    line1, = ax.plot([], [], label="train")
-    line2, = ax.plot([], [], label="test")
+    line1, = ax.semilogy([], [], label="train")
+    line2, = ax.semilogy([], [], label="test")
     plt.xlabel("steps / 1"); plt.ylabel("error / 1"); plt.legend()
     ax.relim()
     ax.autoscale_view()
@@ -106,8 +103,11 @@ def main():
     training_cost = []
     validation_cost = []
 
+    max_iterations = 1000
+    delta_convergence = 1e-4
+
     # do actual training and plotting
-    for i in range(epochs):
+    for i in range(max_iterations):
         # train and calulate costs
         sess.run(training, {r_: train[0], z_: train[1]})
         training_cost.append(sess.run(cost, {r_: train[0], z_: train[1]}))
@@ -122,12 +122,19 @@ def main():
         ax.autoscale_view()
         fig.canvas.draw()
         fig.canvas.flush_events()
+
+        if i > 1:
+            if np.abs(training_cost[-1] - training_cost[-2]) < delta_convergence:
+                print("---------------------------------\n")
+                print("Iteration stopped after {0} steps.\n".format(i))
+                break
     #---
-    
-    x = np.linspace(-1 , 1, 100)
-    y = np.linspace(-1 , 1, 100)
-    xx, yy = np.meshgrid(x, y)
-    #plot_3d(xx,yy,henon_heiles_potential(x,y))
+
+    print("\n\nFinal training error: {0}\nFinal validation error{1}".format(
+        training_cost[-1],
+        validation_cost[-1]
+    ))
+
 
 
 
