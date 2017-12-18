@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import tensorflow as tf
 
+from time import sleep
+
 
 def henon_heiles_potential(x, y):
     """The values of henon heiles poptential (\lambda = 1) for given x/y."""
@@ -46,16 +48,86 @@ def plot_3d(x, y, z):
     ax.plot_trisurf(x, y, z)
     plt.show()
 
+def nn_layer(input_tensor, input_dim, output_dim, activation_fun=tf.nn.relu):
+    """A layer of neurons in a neural network."""
+    weights = tf.Variable(tf.truncated_normal([input_dim, output_dim]))
+    biases = tf.Variable(tf.zeros([output_dim]) + 0.1)
+    
+    preactive = tf.matmul(input_tensor, weights) + biases
+
+    if activation_fun is None:
+        activation = preactive
+    else:
+        activation = activation_fun(preactive)
+
+    return activation, weights, biases
+
+
 
 
 def main():
+
+    # gather training and validation data
     train, test = preprocess_input(*generate_input())
 
+    sess = tf.Session()
 
+    #--- setup the network ---
+    r_ = tf.placeholder(dtype=tf.float32)
+    z_ = tf.placeholder(dtype=tf.float32)
+    num_layer1_nodes = 4
 
+    # the actual network
+    layer1, _, _ = nn_layer(r_, 2, num_layer1_nodes)
+    output, _, _ = nn_layer(layer1, num_layer1_nodes, 1)
+    #---
 
+    # setup training
+    cost = tf.reduce_sum(tf.squared_difference(z_, output))
+    optimizer = tf.train.AdamOptimizer()  
+    training = optimizer.minimize(cost)
 
+    #--- do the training and visualize training and validation costs ---
+    sess.run(tf.global_variables_initializer())
+
+    epochs = 1000
+
+    plt.ion()
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.set_autoscaley_on(True)
+    line1, = ax.plot([], [], label="train")
+    line2, = ax.plot([], [], label="test")
+    plt.xlabel("steps / 1"); plt.ylabel("error / 1"); plt.legend()
+    ax.relim()
+    ax.autoscale_view()
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+    training_cost = []
+    validation_cost = []
+
+    # do actual training and plotting
+    for i in range(epochs):
+        # train and calulate costs
+        sess.run(training, {r_: train[0], z_: train[1]})
+        training_cost.append(sess.run(cost, {r_: train[0], z_: train[1]}))
+        validation_cost.append(sess.run(cost, {r_: test[0], z_: test[1]}))
+
+        print(training_cost[-1], validation_cost[-1])
+
+        # visualize 
+        line1.set_data(np.arange(0, len(training_cost)), training_cost)
+        line2.set_data(np.arange(0, len(training_cost)), validation_cost)
+        ax.relim()
+        ax.autoscale_view()
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+    #---
     
+    x = np.linspace(-1 , 1, 100)
+    y = np.linspace(-1 , 1, 100)
+    xx, yy = np.meshgrid(x, y)
+    #plot_3d(xx,yy,henon_heiles_potential(x,y))
 
 
 
